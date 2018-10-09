@@ -1,0 +1,125 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+require(robis)
+require(sf)
+require(rnaturalearth)
+require(tidyverse)
+require(marmap)
+require(sdmpredictors)
+```
+
+```{r}
+latTop <- 50.5
+latBottom <- 49
+longLeft <- -67.5
+longRight <- -65.5
+
+longLatProj <- "+proj=longlat +ellps=GRS80 +datum=NAD83 +no_defs"
+utmProj <- "+proj=utm +zone=19 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+
+septiles_bbox <- rbind(c(longLeft,latBottom),
+                       c(longLeft,latTop),
+                       c(longRight,latTop),
+                       c(longRight,latBottom),
+                       c(longLeft,latBottom)) %>% 
+  list() %>% 
+  st_polygon() %>% 
+  st_sfc(crs=longLatProj) %>% 
+  st_transform(utmProj)
+
+septiles <- ne_countries(scale = 10, country = "Canada") %>% 
+  st_as_sf() %>% 
+  st_transform(utmProj) %>% 
+  st_intersection(st_buffer(septiles_bbox,20000))
+
+ggplot(septiles)+
+  geom_sf()
+```
+
+```{r}
+ggplot(septiles)+
+  geom_sf()+
+  coord_sf(crs=longLatProj,
+           xlim = c(longRight,longLeft),
+           ylim = c(latTop,latBottom))
+```
+
+
+```{r}
+obis <- occurrence(geometry = st_as_text(st_transform(septiles_bbox,longLatProj))) %>% 
+  st_as_sf(coords = c("decimalLongitude", "decimalLatitude"),
+           crs="+proj=longlat +datum=WGS84") %>%
+  st_transform(longLatProj)
+
+```
+
+```{r}
+obis_top6 <- table(obis$species) %>% 
+  sort(decreasing = TRUE) %>% 
+  as.data.frame() %>% 
+  head(6)
+
+
+ggplot(septiles)+
+  geom_sf()+
+  geom_sf(data=filter(obis,species==obis_top6$Var1))+
+  facet_wrap(~species)+
+  coord_sf(crs=longLatProj,
+           xlim = c(longRight,longLeft),
+           ylim = c(latTop,latBottom))
+```
+
+```{r}
+bathy <- getNOAA.bathy(longLeft,longRight,latTop,latBottom,resolution=1) %>% 
+  marmap::as.xyz() %>%
+  st_as_sf(coords = c("V1", "V2"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
+  st_transform(utmProj) %>% 
+  rename("longitude"="V1",
+         "latitude"="V2",
+         "depth"="V3")
+
+```
+
+```{r}
+ggplot(septiles)+
+  geom_sf()+
+  geom_sf(data=bathy %>% filter(depth<0),aes(col=depth))+
+  coord_sf(crs=longLatProj,
+           xlim = c(longRight,longLeft),
+           ylim = c(latTop,latBottom))
+```
+
+```{r}
+datasets <- list_datasets(terrestrial = FALSE, marine = TRUE)
+layers <- list_layers(datasets)
+
+enviro <- load_layers(layers[layers$name %in% c("pH", "Salinity") & 
+                               layers$dataset_code == "Bio-ORACLE",], datadir = tempdir()) %>%
+  mask(as(st_transform(septiles_bbox,"+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"),"Spatial")) %>% 
+  rasterToPoints(spatial = TRUE) %>% 
+  st_as_sf(coords = c("enviro", "y"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
+  st_transform(utmProj)
+```
+
+
+```{r}
+ggplot(septiles)+
+  geom_sf()+
+  geom_sf(data=enviro,aes(col=BO_ph))+
+  coord_sf(crs=longLatProj,
+           xlim = c(longRight,longLeft),
+           ylim = c(latTop,latBottom))
+```
+
+```{r}
+ggplot(septiles)+
+  geom_sf()+
+  geom_sf(data=enviro,aes(col=BO_salinity))+
+  coord_sf(crs=longLatProj,
+           xlim = c(longRight,longLeft),
+           ylim = c(latTop,latBottom))
+```
