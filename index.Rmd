@@ -3,7 +3,7 @@ title: "Untitled"
 output: html_document
 ---
 
-load packages
+We begin by loading packages. You must have recent versions of R, as well as recent versions of the `sf` and `ggplot2` packages. If you are unsure, please update! This tutorial is largely based on the `sf` package which, in my opinion, will be the primary spatial package in the forseeable future. For more on spatial packages in R, see this [r-bloggers](https://www.r-bloggers.com/should-i-learn-sf-or-sp-for-spatial-r-programming/) article
 
 ```{r, message=FALSE}
 require(robis)
@@ -14,17 +14,25 @@ require(marmap)
 require(sdmpredictors)
 ```
 
-prepare for mapping
+The first thing I like to do whenever doing anything spatial in R is to prepare for basic mapping.
 
-```{r}
+1. Define the extent of the study area
+2. Define projection(s) to use in this study
+3. Create a bounding box
+4. Download a basemap and crop it 
+
+```{r basic mapping}
+# define projections
+longLatProj <- "+proj=longlat +ellps=GRS80 +datum=NAD83 +no_defs"
+utmProj <- "+proj=utm +zone=19 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+
+# study area extent
 latTop <- 50.5
 latBottom <- 49
 longLeft <- -67.5
 longRight <- -65.5
 
-longLatProj <- "+proj=longlat +ellps=GRS80 +datum=NAD83 +no_defs"
-utmProj <- "+proj=utm +zone=19 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
-
+# create bounding box
 septiles_bbox <- rbind(c(longLeft,latBottom),
                        c(longLeft,latTop),
                        c(longRight,latTop),
@@ -35,16 +43,18 @@ septiles_bbox <- rbind(c(longLeft,latBottom),
   st_sfc(crs=longLatProj) %>% 
   st_transform(utmProj)
 
+# get a basemap and crop to bbox (with 20km buffer)
 septiles <- ne_countries(scale = 10, country = "Canada") %>% 
   st_as_sf() %>% 
   st_transform(utmProj) %>% 
   st_intersection(st_buffer(septiles_bbox,20000))
 
+# plot it
 ggplot(septiles)+
   geom_sf()
 ```
 
-better map with limits
+Those rounded edges look a little silly, so let's plot a better map with the limits to our study extent.
 
 ```{r}
 ggplot(septiles)+
@@ -57,7 +67,7 @@ ggplot(septiles)+
 get obis data
 
 ```{r, cache=TRUE, message=FALSE,warning=FALSE}
-obis <- occurrence(geometry = st_as_text(st_transform(septiles_bbox,longLatProj))) %>% 
+obis <- occurrence(geometry = st_as_text(st_transform(septiles_bbox,longLatProj))) %>%
   st_as_sf(coords = c("decimalLongitude", "decimalLatitude"),
            crs=longLatProj) %>%
   st_transform(utmProj)
@@ -67,9 +77,9 @@ obis <- occurrence(geometry = st_as_text(st_transform(septiles_bbox,longLatProj)
 plot 6 most abundant species
 
 ```{r}
-obis_top6 <- table(obis$species) %>% 
-  sort(decreasing = TRUE) %>% 
-  as.data.frame() %>% 
+obis_top6 <- table(obis$species) %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
   head(6)
 
 
@@ -85,10 +95,10 @@ ggplot(septiles)+
 get bathy data
 
 ```{r}
-bathy <- getNOAA.bathy(longLeft,longRight,latTop,latBottom,resolution=1,keep = TRUE) %>% 
+bathy <- getNOAA.bathy(longLeft,longRight,latTop,latBottom,resolution=1,keep = TRUE) %>%
   marmap::as.xyz() %>%
-  st_as_sf(coords = c("V1", "V2"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
-  st_transform(utmProj) %>% 
+  st_as_sf(coords = c("V1", "V2"), remove = FALSE, crs = longLatProj, agr = "constant") %>%
+  st_transform(utmProj) %>%
   rename("longitude"="V1",
          "latitude"="V2",
          "depth"="V3")
@@ -117,8 +127,10 @@ enviro <- load_layers(layers[layers$name %in% c("pH",
                                                 "Sea surface temperature (mean)",
                                                 "Chlorophyll concentration (mean at min depth)",
                                                 "Sea ice thickness (maximum)") & 
-                               layers$dataset_code == "Bio-ORACLE",], datadir = getwd()) %>%
-  mask(as(st_transform(septiles_bbox,"+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"),"Spatial")) %>% 
+                               layers$dataset_code == "Bio-ORACLE",], datadir = getwd()) 
+
+enviro <- enviro %>%
+  mask(as(st_transform(septiles_bbox,longLatProj),"Spatial")) %>% 
   rasterToPoints(spatial = TRUE) %>% 
   st_as_sf(coords = c("enviro", "y"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
   st_transform(utmProj)
@@ -179,14 +191,41 @@ ggplot(septiles)+
            ylim = c(latTop,latBottom))
 ```
 
-get all sf points coords in regular numerical columns as utm coordinates
+get all sf points coords in regular numerical columns as utm coordinates and clean up the data so we just have cod, salinity and temperature.
 
 ```{r}
-obis$utmx <- st_coordinates(obis)[,1]
-obis$utmy <- st_coordinates(obis)[,2]
-bathy$utmx <- st_coordinates(bathy)[,1]
-bathy$utmy <- st_coordinates(bathy)[,2]
-enviro$utmx <- st_coordinates(enviro)[,1]
-enviro$utmy <- st_coordinates(enviro)[,2]
+obis$utm_x <- st_coordinates(obis)[,1]
+obis$utm_y <- st_coordinates(obis)[,2]
+bathy$utm_x <- st_coordinates(bathy)[,1]
+bathy$utm_y <- st_coordinates(bathy)[,2]
+enviro$utm_x <- st_coordinates(enviro)[,1]
+enviro$utm_y <- st_coordinates(enviro)[,2]
+
+
+cod <- obis %>% 
+  as.data.frame() %>% 
+  filter(species=="Gadus morhua") %>% 
+  dplyr::select("individualCount","utm_x","utm_y") %>% 
+  mutate(individualCount = if_else(is.na(individualCount),1,individualCount)) %>%  #assume NA = 1
+  group_by(utm_x,utm_y) %>% 
+  summarize(individualCount = sum(individualCount)) %>% 
+  ungroup()
+
+write_csv(cod,"cod.csv")
+  
+
+salinity <- enviro %>% 
+  as.data.frame() %>% 
+  dplyr::select("BO_salinity","utm_x","utm_y")
+
+write_csv(salinity,"salinity.csv")
+
+sst <- enviro %>% 
+  as.data.frame() %>% 
+  dplyr::select("BO_sstmean","utm_x","utm_y")
+
+write_csv(sst,"sst.csv")
+
+
 ```
 
