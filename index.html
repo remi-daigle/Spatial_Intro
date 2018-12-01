@@ -1600,7 +1600,7 @@ enviro &lt;- load_layers(layers[layers$name %in% c(&quot;pH&quot;,
                                layers$dataset_code == &quot;Bio-ORACLE&quot;,], datadir = getwd()) 
 
 enviro &lt;- enviro %&gt;%
-  mask(as(st_transform(septiles_bbox,longLatProj),&quot;Spatial&quot;)) %&gt;% 
+  mask(as(st_transform(septiles_bbox,projection(enviro)),&quot;Spatial&quot;)) %&gt;% 
   rasterToPoints(spatial = TRUE) %&gt;% 
   st_as_sf(coords = c(&quot;enviro&quot;, &quot;y&quot;), remove = FALSE, crs = longLatProj, agr = &quot;constant&quot;) %&gt;% 
   st_transform(utmProj)</code></pre>

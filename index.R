@@ -3,7 +3,7 @@
 #' output: 
 #'   html_document: 
 #'     toc: yes
-#'     float_toc: yes
+#'     toc_float: yes
 #' ---
 #' 
 #' We begin by loading packages. You must have recent versions of R, as well as recent versions of the `sf` and `ggplot2` packages. If you are unsure, please update! This tutorial is largely based on the `sf` package which, in my opinion, will be the primary spatial package in the forseeable future. For more on spatial packages in R, see this [r-bloggers](https://www.r-bloggers.com/should-i-learn-sf-or-sp-for-spatial-r-programming/) article.
@@ -155,7 +155,7 @@ enviro <- load_layers(layers[layers$name %in% c("pH",
                                layers$dataset_code == "Bio-ORACLE",], datadir = getwd()) 
 
 enviro <- enviro %>%
-  mask(as(st_transform(septiles_bbox,longLatProj),"Spatial")) %>% 
+  mask(as(st_transform(septiles_bbox,projection(enviro)),"Spatial")) %>% 
   rasterToPoints(spatial = TRUE) %>% 
   st_as_sf(coords = c("enviro", "y"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
   st_transform(utmProj)

@@ -155,7 +155,7 @@ enviro <- load_layers(layers[layers$name %in% c("pH",
                                layers$dataset_code == "Bio-ORACLE",], datadir = getwd()) 
 
 enviro <- enviro %>%
-  mask(as(st_transform(septiles_bbox,longLatProj),"Spatial")) %>% 
+  mask(as(st_transform(septiles_bbox,projection(enviro)),"Spatial")) %>% 
   rasterToPoints(spatial = TRUE) %>% 
   st_as_sf(coords = c("enviro", "y"), remove = FALSE, crs = longLatProj, agr = "constant") %>% 
   st_transform(utmProj)
