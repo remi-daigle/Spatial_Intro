@@ -6,7 +6,9 @@ output:
     float_toc: yes
 ---
 
-We begin by loading packages. You must have recent versions of R, as well as recent versions of the `sf` and `ggplot2` packages. If you are unsure, please update! This tutorial is largely based on the `sf` package which, in my opinion, will be the primary spatial package in the forseeable future. For more on spatial packages in R, see this [r-bloggers](https://www.r-bloggers.com/should-i-learn-sf-or-sp-for-spatial-r-programming/) article
+We begin by loading packages. You must have recent versions of R, as well as recent versions of the `sf` and `ggplot2` packages. If you are unsure, please update! This tutorial is largely based on the `sf` package which, in my opinion, will be the primary spatial package in the forseeable future. For more on spatial packages in R, see this [r-bloggers](https://www.r-bloggers.com/should-i-learn-sf-or-sp-for-spatial-r-programming/) article.
+
+If you want to follow along using a local file, you can download either a [`.R`](https://github.com/remi-daigle/Spatial_Intro/raw/master/index.R) script or a [`.Rmd`](https://github.com/remi-daigle/Spatial_Intro/raw/master/index.Rmd) version of this tutorial
 
 ```{r, message=FALSE}
 require(robis)
@@ -253,4 +255,3 @@ write_csv(sst,"sst.csv")
 
 
 ```
-
