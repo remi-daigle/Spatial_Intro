@@ -255,3 +255,7 @@ write_csv(sst,"sst.csv")
 
 
 ```
+
+# Files for day 2 with Marie-Josee
+
+Download zipped folder [here](https://github.com/remi-daigle/Spatial_Intro/raw/master/filesforspatialstats_MarieJosee.zip)
